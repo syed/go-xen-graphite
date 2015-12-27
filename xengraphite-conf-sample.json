@@ -1,0 +1,15 @@
+{ 
+	"poll_interval" : 5,
+	"hosts" : [
+		{ 
+			"url": "http://172.31.0.46",
+			"username": "root",
+			"password": "1q2w3e4r"
+		},
+		{ 
+			"url": "http://172.31.0.47",
+			"username": "root",
+			"password": "1q2w3e4r"
+		},
+	]
+}

@@ -6,8 +6,10 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/nilshell/xmlrpc"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -74,30 +76,62 @@ func (c *XenApiClient) GetMetricsUpdate(since time.Time) ([]Metric, error) {
 }
 
 func SendMetricsToGraphite(metrics []Metric) error {
+	for _, m := range metrics {
+		fmt.Printf("[%s]%s : %s\n", m.Timestamp, m.Key, m.Value)
+	}
 	return nil
 }
 
-func Main() {
+func StartClient(config HostConfig, poll_interval int, wg *sync.WaitGroup) {
+
+	defer wg.Done()
+	fmt.Println(config)
 
 	client := NewXenApiClient(
-		"http://172.31.0.46",
-		"root",
-		"1q2w3e4r",
+		config.Url,
+		config.Username,
+		config.Password,
 	)
 
 	err := client.Login()
 
 	if err != nil {
-		log.Fatalf("Error logging in", err.Error())
+		log.Warning("Error logging in:", err.Error())
+		return
 	}
 
-	log.Info("Logged in")
-	fmt.Println(client.Session)
-	ten_seconds_before := time.Now().Add(-10 * time.Second)
-	metrics, _ := client.GetMetricsUpdate(ten_seconds_before)
-	for _, m := range metrics {
-		fmt.Printf("[%s]%s : %s\n", m.Timestamp, m.Key, m.Value)
-	}
-	SendMetricsToGraphite(metrics)
+	log.Info("Logged in: ", config.Url)
+	//sleep for some random time before polling
+	time.Sleep(time.Duration(rand.Int31n(1000)) * time.Millisecond)
 
+	for {
+
+		update_time := time.Now()
+		time.Sleep(time.Duration(poll_interval) * time.Second)
+
+		metrics, _ := client.GetMetricsUpdate(update_time)
+		SendMetricsToGraphite(metrics)
+	}
+}
+
+func Main() {
+
+	var wg sync.WaitGroup
+
+	config_file := FindConfigFile()
+	if len(config_file) == 0 {
+		log.Errorf("Config file not found. Copy the sample config file to /etc/xengraphite.json")
+	}
+
+	conf := ParseConfigFile(config_file)
+
+	for _, host_conf := range conf.Hosts {
+		wg.Add(1)
+
+		go StartClient(host_conf, conf.PollInterval, &wg)
+
+	}
+
+	log.Info("Main watiting for threads")
+	wg.Wait()
 }
