@@ -12,15 +12,11 @@ type XenApiClient struct {
 	Rpc      *xmlrpc.Client
 }
 
-type Metric struct {
-	Timestamp string
-	Key       string
-	Value     string
-}
-
 type Config struct {
 	PollInterval int          `json:"poll_interval"`
 	Hosts        []HostConfig `json:hosts`
+	GraphiteHost string       `json:graphite_host`
+	GraphitePort int          `json:graphite_port`
 }
 
 type HostConfig struct {

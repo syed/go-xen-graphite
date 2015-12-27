@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
+	"github.com/marpaia/graphite-golang"
 	"github.com/nilshell/xmlrpc"
 	"io/ioutil"
 	"math/rand"
@@ -48,7 +49,7 @@ func (client *XenApiClient) Login() (err error) {
 	return err
 }
 
-func (c *XenApiClient) GetMetricsUpdate(since time.Time) ([]Metric, error) {
+func (c *XenApiClient) GetMetricsUpdate(since time.Time) ([]graphite.Metric, error) {
 
 	last_update := strconv.FormatInt(since.Unix(), 10)
 	req_url := fmt.Sprintf("%s/rrd_updates?session_id=%s&start=%s&host=true", c.Url, c.Session, last_update)
@@ -75,14 +76,14 @@ func (c *XenApiClient) GetMetricsUpdate(since time.Time) ([]Metric, error) {
 	return metrics, nil
 }
 
-func SendMetricsToGraphite(metrics []Metric) error {
+func SendMetricsToGraphite(metrics []graphite.Metric, graphite *graphite.Graphite) error {
 	for _, m := range metrics {
-		fmt.Printf("[%s]%s : %s\n", m.Timestamp, m.Key, m.Value)
+		fmt.Printf("[%s]%s : %s\n", m.Timestamp, m.Name, m.Value)
 	}
-	return nil
+	return graphite.SendMetrics(metrics)
 }
 
-func StartClient(config HostConfig, poll_interval int, wg *sync.WaitGroup) {
+func StartClient(config HostConfig, poll_interval int, graphite *graphite.Graphite, wg *sync.WaitGroup) {
 
 	defer wg.Done()
 	fmt.Println(config)
@@ -110,7 +111,7 @@ func StartClient(config HostConfig, poll_interval int, wg *sync.WaitGroup) {
 		time.Sleep(time.Duration(poll_interval) * time.Second)
 
 		metrics, _ := client.GetMetricsUpdate(update_time)
-		SendMetricsToGraphite(metrics)
+		SendMetricsToGraphite(metrics, graphite)
 	}
 }
 
@@ -125,10 +126,20 @@ func Main() {
 
 	conf := ParseConfigFile(config_file)
 
+	// try to connect a graphite server
+	Graphite, err := graphite.NewGraphite(conf.GraphiteHost, conf.GraphitePort)
+
+	// if you couldn't connect to graphite, use a nop
+	if err != nil {
+		Graphite = graphite.NewGraphiteNop(conf.GraphiteHost, conf.GraphitePort)
+	}
+
+	log.Info("Loaded Graphite connection: ", Graphite)
+
 	for _, host_conf := range conf.Hosts {
 		wg.Add(1)
 
-		go StartClient(host_conf, conf.PollInterval, &wg)
+		go StartClient(host_conf, conf.PollInterval, Graphite, &wg)
 
 	}
 
