@@ -1,6 +1,6 @@
 { 
 	"poll_interval" : 5,
-	"xen_hosts" : [
+	"hosts" : [
 		{ 
 			"url": "http://172.31.0.46",
 			"username": "root",
@@ -11,8 +11,7 @@
 			"username": "root",
 			"password": "1q2w3e4r"
 		},
-	],
-
+	]
 	"graphite_host" : "localhost",
 	"graphite_port" : "2002"
 }
