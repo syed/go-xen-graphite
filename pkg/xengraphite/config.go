@@ -32,6 +32,7 @@ func ParseConfigFile(file_path string) *Config {
 	conf_data, _ := ioutil.ReadFile(file_path)
 
 	if err := json.Unmarshal(conf_data, &conf); err != nil {
+		log.Debug("bad json")
 		log.Errorf(err.Error())
 	}
 

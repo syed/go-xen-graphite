@@ -25,7 +25,7 @@ func NewXenApiClient(uri, username, password string) *XenApiClient {
 }
 
 func (c *XenApiClient) RpcCall(result interface{}, method string, params []interface{}) (err error) {
-	log.Debugf("RPCCall method=%v params=%v\n", method, params)
+	log.Debug("RPCCall method=%v params=%v\n", method, params)
 	p := new(xmlrpc.Params)
 	p.Params = params
 	return c.Rpc.Call(method, *p, result)
@@ -131,6 +131,7 @@ func Main() {
 
 	// if you couldn't connect to graphite, use a nop
 	if err != nil {
+		log.Warning("Unable to connect to graphite using noop")
 		Graphite = graphite.NewGraphiteNop(conf.GraphiteHost, conf.GraphitePort)
 	}
 
