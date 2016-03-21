@@ -126,6 +126,8 @@ func Main() {
 
 	conf := ParseConfigFile(config_file)
 
+	fmt.Printf("GRAPHITE: %s:%d\n", conf.GraphiteHost, conf.GraphitePort)
+
 	// try to connect a graphite server
 	Graphite, err := graphite.NewGraphite(conf.GraphiteHost, conf.GraphitePort)
 

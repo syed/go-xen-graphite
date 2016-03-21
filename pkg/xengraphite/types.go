@@ -15,8 +15,8 @@ type XenApiClient struct {
 type Config struct {
 	PollInterval int          `json:"poll_interval"`
 	Hosts        []HostConfig `json:hosts`
-	GraphiteHost string       `json:graphite_host`
-	GraphitePort int          `json:graphite_port`
+	GraphiteHost string       `json:"graphite_host"`
+	GraphitePort int          `json:"graphite_port"`
 }
 
 type HostConfig struct {

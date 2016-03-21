@@ -10,8 +10,8 @@
 			"url": "http://172.31.0.47",
 			"username": "root",
 			"password": "1q2w3e4r"
-		},
+		}
 	],
 	"graphite_host" : "localhost",
-	"graphite_port" : "2002"
+	"graphite_port" : 2002
 }
