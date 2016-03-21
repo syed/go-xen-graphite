@@ -11,7 +11,7 @@
 			"username": "root",
 			"password": "1q2w3e4r"
 		},
-	]
+	],
 	"graphite_host" : "localhost",
 	"graphite_port" : "2002"
 }
