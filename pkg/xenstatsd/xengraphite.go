@@ -1,10 +1,9 @@
-package xengraphite
+package xenstatsd
 
 import (
 	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
-	_ "github.com/marpaia/graphite-golang"
 	"github.com/nilshell/xmlrpc"
 	"gopkg.in/alexcesaro/statsd.v2"
 	"io/ioutil"
@@ -86,7 +85,7 @@ func (c *XenApiClient) GetMetricsUpdate(since time.Time) ([]StatsdMetric, error)
 	return metrics, nil
 }
 
-func SendMetricsToGraphite(metrics []StatsdMetric, statsd *statsd.Client) {
+func SendMetricsToStatsd(metrics []StatsdMetric, statsd *statsd.Client) {
 
 	for _, m := range metrics {
 		f, _ := strconv.ParseFloat(m.Value, 64)
@@ -139,7 +138,7 @@ func StartClient(config HostConfig, poll_interval int, retry_interval int, stats
 			XenLoginWithRetry(xen_client, retry_interval)
 		}
 
-		SendMetricsToGraphite(metrics, statsd)
+		SendMetricsToStatsd(metrics, statsd)
 	}
 }
 
@@ -157,16 +156,13 @@ func Main() {
 	addr := fmt.Sprintf("%s:%d", conf.StatsdHost, conf.StatsdPort)
 	fmt.Printf("STATSD ADDRESS: %s\n", addr)
 
-	// try to connect a graphite server
-	//Graphite, err := graphite.NewGraphite(conf.GraphiteHost, conf.GraphitePort)
 	statsd_client, err := statsd.New(statsd.Address(addr))
 
-	// if you couldn't connect to graphite, use a nop
 	if err != nil {
 		log.Warning("Unable to connect to statsd", err)
 	}
 
-	log.Info("Loaded Graphite connection: ", statsd_client)
+	log.Info("Loaded Statsd connection: ", statsd_client)
 
 	for _, host_conf := range conf.Hosts {
 		wg.Add(1)

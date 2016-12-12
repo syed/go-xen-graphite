@@ -1,7 +1,7 @@
 package main
 
-import "github.com/syed/go-xen-statsd/pkg/xengraphite"
+import "github.com/syed/go-xen-statsd/pkg/xenstatsd"
 
 func main() {
-	xengraphite.Main()
+	xenstatsd.Main()
 }

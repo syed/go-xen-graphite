@@ -1,4 +1,4 @@
-# Xen Graphite
+# Xen Statsd
 
 A simple go program that gets data from 
 Xen and pushes it to a statsd server

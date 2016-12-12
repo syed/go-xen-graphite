@@ -1,4 +1,4 @@
-package xengraphite
+package xenstatsd
 
 import (
 	"encoding/json"
