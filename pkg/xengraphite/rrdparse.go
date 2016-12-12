@@ -3,7 +3,6 @@ package xengraphite
 import (
 	"encoding/xml"
 	log "github.com/Sirupsen/logrus"
-	"github.com/marpaia/graphite-golang"
 	"strconv"
 	"strings"
 )
@@ -21,7 +20,7 @@ type row struct {
 	Values    []string `xml:"v"`
 }
 
-func ParseRrdMetrics(xml_data []byte) ([]graphite.Metric, error) {
+func ParseRrdMetrics(xml_data []byte) ([]StatsdMetric, error) {
 
 	m := metrics{}
 	err := xml.Unmarshal(xml_data, &m)
@@ -34,7 +33,7 @@ func ParseRrdMetrics(xml_data []byte) ([]graphite.Metric, error) {
 	return norm_metrics, nil
 }
 
-func cleanupMetrics(m *metrics) []graphite.Metric {
+func cleanupMetrics(m *metrics) []StatsdMetric {
 
 	nr, _ := strconv.Atoi(m.NumRows)
 	nc, _ := strconv.Atoi(m.NumCols)
@@ -43,19 +42,24 @@ func cleanupMetrics(m *metrics) []graphite.Metric {
 	if num_metrics <= 0 {
 		return nil
 	}
-	norm_metrics := make([]graphite.Metric, num_metrics)
+	norm_metrics := make([]StatsdMetric, num_metrics)
 	count := 0
 
 	for _, row := range m.Rows {
-		ts := row.Timestamp
+		//ts := row.Timestamp
 		for i, val := range row.Values {
-			ts_i64, _ := strconv.ParseInt(ts, 10, 64)
-			norm_metrics[count].Timestamp = ts_i64
+
+			// XXX: We are not using the timestamp provided
+			// by XenServer. This would mean that there will
+			// be a slight delay between the event happening
+			// and it being logged by statsd
+			//ts_i64, _ := strconv.ParseInt(ts, 10, 64)
+			//norm_metrics[count].Timestamp = ts_i64
+
 			norm_metrics[count].Name = cleanMetricName(m.Entries[i])
 			norm_metrics[count].Value = val
 			count += 1
 		}
-
 	}
 
 	return norm_metrics

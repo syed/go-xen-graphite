@@ -1,5 +1,6 @@
 { 
-	"poll_interval" : 5,
+	"poll_interval" : 1,
+	"retry_interval" : 60,
 	"hosts" : [
 		{ 
 			"url": "http://172.31.0.46",
@@ -12,6 +13,8 @@
 			"password": "1q2w3e4r"
 		}
 	],
-	"graphite_host" : "localhost",
-	"graphite_port" : 2002
+
+	"statsd_host" : "localhost",
+	"statsd_port" : 8125,
+	"statsd_prefix" : ""
 }

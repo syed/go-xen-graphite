@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	CONF_FILE = "xengraphite.json"
+	CONF_FILE = "xenstatsd.json"
 )
 
 func FindConfigFile() string {

@@ -4,8 +4,9 @@ import (
 	"errors"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
-	"github.com/marpaia/graphite-golang"
+	_ "github.com/marpaia/graphite-golang"
 	"github.com/nilshell/xmlrpc"
+	"gopkg.in/alexcesaro/statsd.v2"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -49,7 +50,7 @@ func (client *XenApiClient) Login() (err error) {
 	return err
 }
 
-func (c *XenApiClient) GetMetricsUpdate(since time.Time) ([]graphite.Metric, error) {
+func (c *XenApiClient) GetMetricsUpdate(since time.Time) ([]StatsdMetric, error) {
 
 	last_update := strconv.FormatInt(since.Unix(), 10)
 	req_url := fmt.Sprintf("%s/rrd_updates?session_id=%s&start=%s&host=true", c.Url, c.Session, last_update)
@@ -73,35 +74,57 @@ func (c *XenApiClient) GetMetricsUpdate(since time.Time) ([]graphite.Metric, err
 		return nil, errors.New("Unable to parse metrics")
 	}
 
+	fmt.Println(metrics)
+
+	if len(metrics) == 0 {
+		// We might have lost the session,
+		// refresh it by relogin
+		log.Info("Got no metrics, trying to login again")
+		c.Login()
+	}
+
 	return metrics, nil
 }
 
-func SendMetricsToGraphite(metrics []graphite.Metric, graphite *graphite.Graphite) error {
+func SendMetricsToGraphite(metrics []StatsdMetric, statsd *statsd.Client) {
+
 	for _, m := range metrics {
-		fmt.Printf("[%s]%s : %s\n", m.Timestamp, m.Name, m.Value)
+		f, _ := strconv.ParseFloat(m.Value, 64)
+		fmt.Printf("%s : %f\n", m.Name, f)
+		statsd.Timing(m.Name, f)
 	}
-	return graphite.SendMetrics(metrics)
 }
 
-func StartClient(config HostConfig, poll_interval int, graphite *graphite.Graphite, wg *sync.WaitGroup) {
+func XenLoginWithRetry(xen_client *XenApiClient, retry_interval int) {
+
+	log.Info("Trying to login: ", xen_client.Url)
+
+	for {
+		err := xen_client.Login()
+
+		if err == nil {
+			log.Info("Logged in: ", xen_client.Url)
+			return
+		}
+		log.Warning("Error logging in:", err.Error())
+		time.Sleep(time.Duration(retry_interval) * time.Second)
+	}
+
+}
+
+func StartClient(config HostConfig, poll_interval int, retry_interval int, statsd *statsd.Client, wg *sync.WaitGroup) {
 
 	defer wg.Done()
 	fmt.Println(config)
 
-	client := NewXenApiClient(
+	xen_client := NewXenApiClient(
 		config.Url,
 		config.Username,
 		config.Password,
 	)
 
-	err := client.Login()
+	XenLoginWithRetry(xen_client, retry_interval)
 
-	if err != nil {
-		log.Warning("Error logging in:", err.Error())
-		return
-	}
-
-	log.Info("Logged in: ", config.Url)
 	//sleep for some random time before polling
 	time.Sleep(time.Duration(rand.Int31n(1000)) * time.Millisecond)
 
@@ -110,8 +133,13 @@ func StartClient(config HostConfig, poll_interval int, graphite *graphite.Graphi
 		update_time := time.Now()
 		time.Sleep(time.Duration(poll_interval) * time.Second)
 
-		metrics, _ := client.GetMetricsUpdate(update_time)
-		SendMetricsToGraphite(metrics, graphite)
+		metrics, err := xen_client.GetMetricsUpdate(update_time)
+		if err != nil {
+			log.Warning("Lost connection to XenServer, retrying to login", err.Error())
+			XenLoginWithRetry(xen_client, retry_interval)
+		}
+
+		SendMetricsToGraphite(metrics, statsd)
 	}
 }
 
@@ -121,28 +149,29 @@ func Main() {
 
 	config_file := FindConfigFile()
 	if len(config_file) == 0 {
-		log.Errorf("Config file not found. Copy the sample config file to /etc/xengraphite.json")
+		log.Errorf("Config file not found. Copy the sample config file to /etc/xenstatsd.json")
 	}
 
 	conf := ParseConfigFile(config_file)
 
-	fmt.Printf("GRAPHITE: %s:%d\n", conf.GraphiteHost, conf.GraphitePort)
+	addr := fmt.Sprintf("%s:%d", conf.StatsdHost, conf.StatsdPort)
+	fmt.Printf("STATSD ADDRESS: %s\n", addr)
 
 	// try to connect a graphite server
-	Graphite, err := graphite.NewGraphite(conf.GraphiteHost, conf.GraphitePort)
+	//Graphite, err := graphite.NewGraphite(conf.GraphiteHost, conf.GraphitePort)
+	statsd_client, err := statsd.New(statsd.Address(addr))
 
 	// if you couldn't connect to graphite, use a nop
 	if err != nil {
-		log.Warning("Unable to connect to graphite using noop")
-		Graphite = graphite.NewGraphiteNop(conf.GraphiteHost, conf.GraphitePort)
+		log.Warning("Unable to connect to statsd", err)
 	}
 
-	log.Info("Loaded Graphite connection: ", Graphite)
+	log.Info("Loaded Graphite connection: ", statsd_client)
 
 	for _, host_conf := range conf.Hosts {
 		wg.Add(1)
 
-		go StartClient(host_conf, conf.PollInterval, Graphite, &wg)
+		go StartClient(host_conf, conf.PollInterval, conf.RetryInterval, statsd_client, &wg)
 
 	}
 

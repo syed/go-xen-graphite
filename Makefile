@@ -1,8 +1,8 @@
-all: xengraphite
+all: xenstatsd
 
-xengraphite:
-	go build app/xengraphite.go
+xenstatsd:
+	go build app/xenstatsd.go
 
 clean:
-	rm xengraphite
+	rm xenstatsd
 
